@@ -4,6 +4,14 @@ from options.train_options import TrainOptions
 from data import create_dataset
 from models import create_model
 from util.visualizer import Visualizer
+from google.cloud import storage
+
+
+def save_on_cloud(filename, path):
+    """Saves the model to Google Cloud Storage"""
+    bucket = storage.Client().bucket()
+    blob = bucket.blob(filename)
+    blob.upload_from_filename(path)
 
 
 if __name__ == '__main__':
@@ -64,7 +72,8 @@ if __name__ == '__main__':
                 print('saving the latest model (epoch %d, total_iters %d)' % (epoch, total_iters))
                 print(opt.name)  # it's useful to occasionally show the experiment name on console
                 save_suffix = 'iter_%d' % total_iters if opt.save_by_iter else 'latest'
-                model.save_networks(save_suffix)
+                [filename, path] = model.save_networks(save_suffix)
+                save_on_cloud(filename, path)
 
             iter_data_time = time.time()
 

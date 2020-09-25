@@ -176,8 +176,10 @@ class BaseModel(ABC):
                 if len(self.gpu_ids) > 0 and torch.cuda.is_available():
                     torch.save(net.module.cpu().state_dict(), save_path)
                     net.cuda(self.gpu_ids[0])
+                    return [save_filename, save_path]
                 else:
                     torch.save(net.cpu().state_dict(), save_path)
+                    return  [save_filename, save_path]
 
     def __patch_instance_norm_state_dict(self, state_dict, module, keys, i=0):
         """Fix InstanceNorm checkpoints incompatibility (prior to 0.4)"""
