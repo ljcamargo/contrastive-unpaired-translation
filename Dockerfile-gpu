@@ -3,30 +3,38 @@ FROM nvidia/cuda:10.1-base-ubuntu16.04
 
 # Installs necessary dependencies.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+         build-essential \
+         cmake \
+         git \
          wget \
          curl \
-         python-dev && \
+         ca-certificates \
+         libjpeg-dev \
+         libpng-dev \
+         zip \
+         unzip && \
      rm -rf /var/lib/apt/lists/*
 
 # Install Miniconda and Python 3.6
+ARG PYTHON_VERSION=3.6
 ENV CONDA_AUTO_UPDATE_CONDA=false
 ENV PATH=/home/user/miniconda/bin:$PATH
-RUN curl -sLo ~/miniconda.sh https://repo.continuum.io/miniconda/Miniconda3-4.7.12.1-Linux-x86_64.sh \
- && chmod +x ~/miniconda.sh \
- && ~/miniconda.sh -b -p ~/miniconda \
- && rm ~/miniconda.sh \
- && conda install -y python==3.6.9 \
- && conda install -y pip \
- && conda clean -ya
+RUN curl -o ~/miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
+     chmod +x ~/miniconda.sh && \
+     ~/miniconda.sh -b -p /opt/conda && \
+     rm ~/miniconda.sh && \
+     /opt/conda/bin/conda install -y python=$PYTHON_VERSION numpy pyyaml scipy ipython mkl mkl-include ninja cython typing && \
+     /opt/conda/bin/conda install -y -c pytorch magma-cuda100 && \
+     /opt/conda/bin/conda clean -ya
+ENV PATH /opt/conda/bin:$PATH
 
 # CUDA 10.1-specific steps
 RUN conda install -y -c pytorch \
     cudatoolkit=10.1 \
     "pytorch=1.4.0=py3.6_cuda10.1.243_cudnn7.6.3_0" \
     "torchvision=0.5.0=py36_cu101" \
+ && conda install -y pip \
  && conda clean -ya
-
- RUN pip install cloudml-hypertune
 
 # Installs google cloud sdk, this is mostly for using gsutil to export model.
 RUN wget -nv \
@@ -47,14 +55,20 @@ ENV PATH $PATH:/root/tools/google-cloud-sdk/bin
 # Make sure gsutil will use the default service account
 RUN echo '[GoogleCompute]\nservice_account = default' > /etc/boto.cfg
 
-# Copies the trainer code 
+RUN pip install cloudml-hypertune \
+ dominate>=2.4.0 \
+ visdom>=0.1.8.8 \
+ packaging \
+ GPUtil>=1.4.0 \
+ pandas \
+ google-cloud-storage
+
+RUN wget https://storage.googleapis.com/nets-datasets/grumpifycat.zip -P ./datasets/ \
+ && unzip ./datasets/grumpifycat.zip -d ./datasets/ \
+ && rm ./datasets/grumpifycat.zip
+
 COPY . .
 
-RUN pip install -r requirements.txt
-
-RUN wget -o https://storage.googleapis.com/nets-datasets/grumpifycat.zip --output ./datasets/grumpifycat.zip && \
-    unzip ./datasets/grumpifycat.zip -d ./datasets/dataset/ && \
-    rm ./datasets/grumpifycat.zip
-
-# Sets up the entry point to invoke the trainer.
-NTRYPOINT ["python", "train.py"]
+EXPOSE 8097
+ENTRYPOINT ["python", "train.py", "--dataroot", "./datasets/grumpifycat",  "--name", "grumpycat_CUT", "--CUT_mode", "CUT", "--gpu_ids", "-1", "--display_id", "0"]
+#CMD ["/bin/bash"]

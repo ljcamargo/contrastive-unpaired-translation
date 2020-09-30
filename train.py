@@ -1,3 +1,4 @@
+import os
 import time
 import torch
 from options.train_options import TrainOptions
@@ -9,7 +10,7 @@ from google.cloud import storage
 
 def save_on_cloud(filename, path):
     """Saves the model to Google Cloud Storage"""
-    bucket = storage.Client().bucket()
+    bucket = storage.Client().get_bucket(os.environ['BUCKET'])
     blob = bucket.blob(filename)
     blob.upload_from_filename(path)
 
